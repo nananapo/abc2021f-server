@@ -1,3 +1,6 @@
+const nowTime = require("./time.js");
+const Session = require('./session.js');
+
 // adminを初期化
 let admin = require("firebase-admin");
 let serviceAccount = require("./.secret/a2021o-firebase-adminsdk.json");
@@ -9,17 +12,33 @@ admin.initializeApp({
 let auth = admin.auth();
 let db = admin.firestore();
 
-// サーバーを起動
-const nowTime = require("./time.js");
+
+
+// サーバーを起動する
+const fs = require('fs');
+const https = require('https');
+const options = {
+    key:  fs.readFileSync('/etc/letsencrypt/live/oekaki.chat/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/oekaki.chat/fullchain.pem')
+};
+
 const express = require('express');
-const http = require('http');
-const Session = require('./session.js');
-const cors = require('cors');
-
 const app = express();
-app.use(cors());
+const server = https.createServer(options, app);
 
-const io = require("socket.io").listen(3030);
+// cors
+const bodyParser = require('body-parser');
+app.use(bodyParser.urlencoded({extended: false}));
+app.use(bodyParser.json());
+app.use(function(req, res, next){
+    res.header("Access-Control-Allow-Origin","*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+})
+
+// socket.io
+
+const io = require("socket.io")(server);
 
 const users = {};
 const sessions = {};
@@ -165,3 +184,5 @@ io.on('connection', (socket) => {
         sessions[sessionId].pushData(uid,data);
     });
 });
+
+server.listen(3030, () => {  console.log('listening on *:3030');});
